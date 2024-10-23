@@ -32,7 +32,7 @@ class YoloDetect():
         self.read_class_file()
         self.get_output_layers()
         self.last_alert = None
-        self.alert_telegram_each = 15  # seconds
+        self.alert_telegram_each = 5  # seconds
 
     def read_class_file(self):
         with open(self.classnames_file, 'r') as f:
@@ -83,16 +83,22 @@ class YoloDetect():
                 scores = detection[5:]
                 class_id = np.argmax(scores)
                 confidence = scores[class_id]
-                if (confidence >= self.conf_threshold) and (self.classes[class_id] == self.detect_class):
-                    center_x = int(detection[0] * self.frame_width)
-                    center_y = int(detection[1] * self.frame_height)
-                    w = int(detection[2] * self.frame_width)
-                    h = int(detection[3] * self.frame_height)
-                    x = center_x - w / 2
-                    y = center_y - h / 2
-                    class_ids.append(class_id)
-                    confidences.append(float(confidence))
-                    boxes.append([x, y, w, h])
+                if (confidence >= self.conf_threshold):
+                    # Kiểm tra class_id có hợp lệ không
+                    if class_id < len(self.classes):
+                        if self.classes[class_id] == self.detect_class:
+                            center_x = int(detection[0] * self.frame_width)
+                            center_y = int(detection[1] * self.frame_height)
+                            w = int(detection[2] * self.frame_width)
+                            h = int(detection[3] * self.frame_height)
+                            x = center_x - w / 2
+                            y = center_y - h / 2
+                            class_ids.append(class_id)
+                            confidences.append(float(confidence))
+                            boxes.append([x, y, w, h])
+                    else:
+                        print(f"Warning: class_id {class_id} is out of range for classes list")
+
 
         indices = cv2.dnn.NMSBoxes(boxes, confidences, self.conf_threshold, self.nms_threshold)
 

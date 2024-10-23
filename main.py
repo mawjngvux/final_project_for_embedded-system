@@ -3,7 +3,7 @@ import numpy as np
 from imutils.video import VideoStream
 from yolodetect import YoloDetect
 
-video = VideoStream(src=1).start()
+video = VideoStream().start()
 # Chua cac diem nguoi dung chon de tao da giac
 points = []
 
