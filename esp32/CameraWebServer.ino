@@ -14,7 +14,7 @@
 // Select camera model
 // ===================
 //#define CAMERA_MODEL_WROVER_KIT // Has PSRAM
-#define CAMERA_MODEL_ESP_EYE  // Has PSRAM
+// #define CAMERA_MODEL_ESP_EYE  // Has PSRAM
 //#define CAMERA_MODEL_ESP32S3_EYE // Has PSRAM
 //#define CAMERA_MODEL_M5STACK_PSRAM // Has PSRAM
 //#define CAMERA_MODEL_M5STACK_V2_PSRAM // M5Camera version B Has PSRAM
@@ -22,7 +22,7 @@
 //#define CAMERA_MODEL_M5STACK_ESP32CAM // No PSRAM
 //#define CAMERA_MODEL_M5STACK_UNITCAM // No PSRAM
 //#define CAMERA_MODEL_M5STACK_CAMS3_UNIT  // Has PSRAM
-//#define CAMERA_MODEL_AI_THINKER // Has PSRAM
+#define CAMERA_MODEL_AI_THINKER // Has PSRAM
 //#define CAMERA_MODEL_TTGO_T_JOURNAL // No PSRAM
 //#define CAMERA_MODEL_XIAO_ESP32S3 // Has PSRAM
 // ** Espressif Internal Boards **
@@ -36,8 +36,9 @@
 // ===========================
 // Enter your WiFi credentials
 // ===========================
-const char *ssid = "**********";
-const char *password = "**********";
+// setup Wifi
+const char *ssid = "Mawjngvux";
+const char *password = "@6h2M6W6i4244";
 
 void startCameraServer();
 void setupLedFlash(int pin);
