@@ -48,7 +48,6 @@ class YoloDetect():
         cv2.rectangle(img, (x, y), (x_plus_w, y_plus_h), color, 2)
         cv2.putText(img, label, (x - 10, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
-        # Tinh toan centroid
         centroid = ((x + x_plus_w) // 2, (y + y_plus_h) // 2)
         cv2.circle(img, centroid, 5, (color), -1)
 
@@ -59,7 +58,6 @@ class YoloDetect():
 
     def alert(self, img):
         cv2.putText(img, "ALARM!!!!", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-        # New thread to send telegram after 15 seconds
         if (self.last_alert is None) or (
                 (datetime.datetime.utcnow() - self.last_alert).total_seconds() > self.alert_telegram_each):
             self.last_alert = datetime.datetime.utcnow()
@@ -73,7 +71,6 @@ class YoloDetect():
         self.model.setInput(blob)
         outs = self.model.forward(self.output_layers)
 
-        # Loc cac object trong khung hinh
         class_ids = []
         confidences = []
         boxes = []
@@ -84,7 +81,6 @@ class YoloDetect():
                 class_id = np.argmax(scores)
                 confidence = scores[class_id]
                 if (confidence >= self.conf_threshold):
-                    # Kiểm tra class_id có hợp lệ không
                     if class_id < len(self.classes):
                         if self.classes[class_id] == self.detect_class:
                             center_x = int(detection[0] * self.frame_width)

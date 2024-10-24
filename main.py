@@ -4,10 +4,8 @@ from imutils.video import VideoStream
 from yolodetect import YoloDetect
 
 video = VideoStream().start()
-# Chua cac diem nguoi dung chon de tao da giac
 points = []
 
-# new model Yolo
 model = YoloDetect()
 
 
@@ -29,7 +27,6 @@ while True:
     frame = video.read()
     frame = cv2.flip(frame, 1)
 
-    # Ve ploygon
     frame = draw_polygon(frame, points)
 
     if detect:
@@ -42,7 +39,6 @@ while True:
         points.append(points[0])
         detect = True
 
-    # Hien anh ra man hinh
     cv2.imshow("Intrusion Warning", frame)
 
     cv2.setMouseCallback('Intrusion Warning', handle_left_click, points)
