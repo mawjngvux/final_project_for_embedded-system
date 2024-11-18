@@ -1,11 +1,12 @@
-from shapely.geometry import Point
-from shapely.geometry.polygon import Polygon
+from ultralytics import YOLO
 import cv2
 import numpy as np
+import time
 from telegram_utils import send_telegram
 import datetime
 import threading
-
+from shapely.geometry import Point
+from shapely.geometry.polygon import Polygon
 
 def isInside(points, centroid):
     polygon = Polygon(points)
@@ -17,47 +18,71 @@ def isInside(points, centroid):
 class YoloDetect():
     def __init__(self, detect_class="person", frame_width=1280, frame_height=720):
         # Parameters
-        self.classnames_file = "model/classnames.txt"
-        self.weights_file = "model/yolov4-tiny.weights"
-        self.config_file = "model/yolov4-tiny.cfg"
+        self.model_file = "yolov8n.pt"  # YOLOv8 pre-trained model
         self.conf_threshold = 0.5
-        self.nms_threshold = 0.4
         self.detect_class = detect_class
         self.frame_width = frame_width
         self.frame_height = frame_height
-        self.scale = 1 / 255
-        self.model = cv2.dnn.readNet(self.weights_file, self.config_file)
-        self.classes = None
-        self.output_layers = None
-        self.read_class_file()
-        self.get_output_layers()
+        self.model = YOLO(self.model_file)  # Load the YOLOv8 model
         self.last_alert = None
         self.alert_telegram_each = 5  # seconds
 
-    def read_class_file(self):
-        with open(self.classnames_file, 'r') as f:
-            self.classes = [line.strip() for line in f.readlines()]
+    def detect(self, frame, points):
+        """
+        Detect objects in a given frame inside the area defined by the points.
+        Points are a list of (x, y) coordinates that define a polygon.
+        """
+        # Perform inference using YOLOv8
+        results = self.model.predict(frame, conf=self.conf_threshold, verbose=False)
+        
+        # Process results
+        detections = []
+        for result in results[0].boxes.data.tolist():  # Iterate through detected objects
+            x1, y1, x2, y2, confidence, class_id = result
+            class_name = self.model.names[int(class_id)]  # Map class ID to class name
+            
+            # Check if the detected class matches the target
+            if class_name == self.detect_class:
+                # Check if the detection is inside the polygon defined by points
+                detection_box = np.array([[(x1, y1), (x2, y2)]], dtype=np.int32)
+                polygon = np.array([points], dtype=np.int32)
 
-    def get_output_layers(self):
-        layer_names = self.model.getLayerNames()
-        self.output_layers = [layer_names[i - 1] for i in self.model.getUnconnectedOutLayers()]
+                # Check if the center of the bounding box is inside the polygon
+                center_x = (x1 + x2) / 2
+                center_y = (y1 + y2) / 2
+                if cv2.pointPolygonTest(polygon, (center_x, center_y), False) >= 0:
+                    detections.append({
+                        "class": class_name,
+                        "confidence": confidence,
+                        "box": (int(x1), int(y1), int(x2), int(y2))
+                    })
 
-    def draw_prediction(self, img, class_id, x, y, x_plus_w, y_plus_h, points):
-        label = str(self.classes[class_id])
+        return detections
+
+    def draw_detections(self, frame, detections, points):
+        """
+        Draw bounding boxes and labels on the frame.
+        """
         color = (0, 255, 0)
-        cv2.rectangle(img, (x, y), (x_plus_w, y_plus_h), color, 2)
-        cv2.putText(img, label, (x - 10, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+        for detection in detections:
+            x1, y1, x2, y2 = detection["box"]
+            label = f'{detection["class"]}: {detection["confidence"]:.2f}'
+            # Draw bounding box
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            # Draw label
+            cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            
+            # Tinh toan centroid
+            centroid = ((x1 + x2) // 2, (y1 + y2) // 2)
+            cv2.circle(frame, centroid, 5, (color), -1)
 
-        centroid = ((x + x_plus_w) // 2, (y + y_plus_h) // 2)
-        cv2.circle(img, centroid, 5, (color), -1)
-
-        if isInside(points, centroid):
-            img = self.alert(img)
-
-        return isInside(points, centroid)
+            if isInside(points, centroid):
+                self.alert(frame)
+        return frame
 
     def alert(self, img):
         cv2.putText(img, "ALARM!!!!", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        # New thread to send telegram after 15 seconds
         if (self.last_alert is None) or (
                 (datetime.datetime.utcnow() - self.last_alert).total_seconds() > self.alert_telegram_each):
             self.last_alert = datetime.datetime.utcnow()
@@ -65,45 +90,3 @@ class YoloDetect():
             thread = threading.Thread(target=send_telegram)
             thread.start()
         return img
-
-    def detect(self, frame, points):
-        blob = cv2.dnn.blobFromImage(frame, self.scale, (416, 416), (0, 0, 0), True, crop=False)
-        self.model.setInput(blob)
-        outs = self.model.forward(self.output_layers)
-
-        class_ids = []
-        confidences = []
-        boxes = []
-
-        for out in outs:
-            for detection in out:
-                scores = detection[5:]
-                class_id = np.argmax(scores)
-                confidence = scores[class_id]
-                if (confidence >= self.conf_threshold):
-                    if class_id < len(self.classes):
-                        if self.classes[class_id] == self.detect_class:
-                            center_x = int(detection[0] * self.frame_width)
-                            center_y = int(detection[1] * self.frame_height)
-                            w = int(detection[2] * self.frame_width)
-                            h = int(detection[3] * self.frame_height)
-                            x = center_x - w / 2
-                            y = center_y - h / 2
-                            class_ids.append(class_id)
-                            confidences.append(float(confidence))
-                            boxes.append([x, y, w, h])
-                    else:
-                        print(f"Warning: class_id {class_id} is out of range for classes list")
-
-
-        indices = cv2.dnn.NMSBoxes(boxes, confidences, self.conf_threshold, self.nms_threshold)
-
-        for i in indices:
-            box = boxes[i]
-            x = box[0]
-            y = box[1]
-            w = box[2]
-            h = box[3]
-            self.draw_prediction(frame, class_ids[i], round(x), round(y), round(x + w), round(y + h), points)
-
-        return frame
