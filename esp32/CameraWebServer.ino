@@ -39,7 +39,7 @@
 // setup Wifi
 const char *ssid = "Mawjngvux";
 const char *password = "@6h2M6W6i4244";
-// http://192.168.1.87/
+// 
 void startCameraServer();
 void setupLedFlash(int pin);
 
